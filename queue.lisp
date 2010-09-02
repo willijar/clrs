@@ -39,7 +39,7 @@
       (error 'overflow :structure q)
     (extend(&optional (extension +standard-heap-extend-size+))
         :report "Extend queue"
-        :interactive (lambda() (format t "Enter wntension: ") (list (read)))
+        :interactive (lambda() (format t "Enter entension: ") (list (read)))
         (let* ((v (implementation-vector q))
                (n (cl:length v))
                (head (vector-queue-head q)))
