@@ -1,43 +1,35 @@
+(in-package :clrs)
 
-(defstruct(binary-heap (:include vector-implementation)))
-
-(declaim (inline hleft hright hparent href (setf href)))
-(defun hparent(i) (declare (fixnum i)) ((the fixnum) (/ i 2)))
-(defun hleft(i) (declare (fixnum i)) ((the fixnum) (* i 2)))
-(defun hright(i) (declare (fixnum i)) ((the fixnum) (1+ (* i 2))))
-(defun href(array i) (declare (vector array) (fixnum i)) (aref array (1- i)))
-
-(defun (setf href)(value array i)
-  (declare (vector array) (fixnum i))
-  (setf (aref array (1- i)) value))
+(declaim (inline hleft hright hparent))
+(defun hparent(i) (floor i 2))
+(defun hleft(i) (* i 2))
+(defun hright(i) (1+ (* i 2)))
+(defmacro href(A i) `(aref ,A (1- ,i)))
 
 (defun heapify(A i predicate &key (heap-size (length A)) (key #'identity))
-  (declare (vector A) (fixnum i))
-  (let ((l (left i))
-        (r (right i))
-        (largest i))
-    (declare (fixnum l r largest))
-    (flet((test(a b)
-            (declare (fixnum a b))
+  (labels((test(i j)
             (funcall
-             predicate (funcall key (href A a)) (funcall key (href A b)))))
-      (when (and (<= l heap-size) (test l i)) (setf largest l))
-      (when (and (<= r heap-size) (test r largest)) (setf largest r))
-      (unless (= largest i)
-        (rotatef (href A i) (href A largest)))
-      (heapify A largest))))
+             predicate (funcall key (href A i)) (funcall key (href A j))))
+          (doheap(i)
+            (let ((l (hleft i))
+                  (r (hright i))
+                  (largest i))
+              (when (and (<= l heap-size) (test l i)) (setf largest l))
+              (when (and (<= r heap-size) (test r largest)) (setf largest r))
+              (unless (= largest i)
+                (rotatef (href A i) (href A largest))
+                (doheap largest)))))
+    (doheap i)))
 
 (defun build-heap(A predicate &key (key #'identity))
-  (declare (vector A) (function predicate key))
-  (do((i (/ (length A) 2) (1- i)))
-     ((< i 1))
-    (declare (fixnum i))
+  (do((i (floor (length A) 2) (1- i)))
+     ((= i 0))
     (heapify A i predicate :key key)))
 
 (defun heapsort(A predicate &key (key #'identity))
-  (build-max-heap A predicate :key key)
+  (build-heap A predicate :key key)
   (do((i (length A) (1- i)))
-      ((< i 2))
+     ((= i 1))
     (rotatef (href A 1) (href A i))
     (heapify A 1 predicate :heap-size (1- i) :key key)))
 
@@ -45,13 +37,14 @@
 
 (defun heap-extract(A predicate &key (key #'identity))
   (when (< (length A) 1)
-    (error 'underflow :structure A))
+    (underflow A))
   (let ((max (href A 1)))
     (setf (href A 1) (href A (length A)))
     (decf (fill-pointer A))
     (heapify A 1 predicate :key key)
     max))
 
+#|
 (defun heap-key-changed(A i predicate &key (key #'identity))
   "Note this only work if key is increased in a minimum heap or decreased in a maximum heap"
     (do((i i p)
@@ -69,5 +62,10 @@
   (when (and extension (> (- (array-dimension A 0) (length A)) extension))
     (adjust-array A (fill-pointer A)))
   (heapify A i predicate &key key))
+
+(defstruct(binary-heap (:include vector-implementation))
+  (key-fn #'identity :type function :read-only t)
+  (comp-fn #'< :type function :read-only t))
+
 
 |#

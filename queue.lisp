@@ -19,7 +19,7 @@
   (= (vector-queue-head q) (vector-queue-tail q)))
 
 (defstruct (list-queue (:include list-implementation))
-  (tail nil :type cons))
+  (tail nil :type list))
 
 (defun make-queue(&key
                   (initial-size +standard-heap-allocation-size+)

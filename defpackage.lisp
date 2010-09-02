@@ -17,6 +17,6 @@
    ;; queue interface
    #:make-queue #:enqueue #:dequeque
    ;; tree interface
-   #:make-rbtree
+   #:make-tree
    ;; heap interface
-   #:make-heap #:make-priority-queue #:map))
+   #:heapsort #:make-heap #:make-priority-queue #:map))
