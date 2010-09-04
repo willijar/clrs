@@ -7,6 +7,9 @@
 (defgeneric pop(s)
   (:documentation "pop element x from stack s"))
 
+(defgeneric peek(s)
+  (:documentation "Return value of next element on stack without removing it."))
+
 (defstruct (vector-stack (:include vector-implementation)))
 (defstruct (list-stack(:include list-implementation)))
 
@@ -56,7 +59,6 @@
 
 ;; geneal interface
 
-
 (defmethod insert(x (s list-stack)) (push x s))
 
 (defmethod insert(x (s vector-stack)) (push x s))
@@ -90,27 +92,24 @@
         (nth (- n k 1) l)
         (invalid-index-error k s))))
 
-(defmethod minimum((s vector-stack))
+(defmethod peek((s vector-stack))
   (let* ((v (implementation-vector s))
          (n (cl:length v)))
     (if (zerop n)
         (underflow s)
         (aref v (1- n)))))
 
-(defmethod minimum((s list-stack))
+(defmethod peek((s list-stack))
   (let ((l (implementation-head s)))
     (if l (first l) (underflow s))))
 
-(defmethod maximum((s vector-stack))
+(defmethod rank(x (s vector-stack))
   (let* ((v (implementation-vector s))
-         (n (cl:length v)))
-    (if (zerop n)
-        (underflow s)
-        (aref v 0))))
+         (p (position x v)))
+    (when p (- (length v) p 1))))
 
-(defmethod maximum((s list-stack))
-  (let ((l (implementation-head s)))
-    (if l (first (butlast l)) (underflow s))))
+(defmethod rank(x (s list-stack))
+  (position x (implementation-head s)))
 
 (defmethod predecessor(x (s vector-stack))
   (let* ((v (implementation-vector s))
@@ -136,11 +135,11 @@
    (implementation-head s))
   nil)
 
-(defmethod map(f (s list-stack) &rest args)
+(defmethod traverse(f (s list-stack) &rest args)
   (cl:map 'nil (if args #'(lambda(v) (apply f (cons v args))) f)
           (implementation-head s)))
 
-(defmethod map(f (s vector-stack) &rest args)
+(defmethod traverse(f (s vector-stack) &rest args)
   (let* ((f (if args #'(lambda(v) (apply f (cons v args))) f))
          (v (implementation-vector s))
          (n (cl:length v)))

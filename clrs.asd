@@ -16,5 +16,6 @@
                  (:file "stack" :depends-on ("common"))
                  (:file "queue" :depends-on ("common"))
                  (:file "tree" :depends-on ("common"))
-                 (:file "heap" :depends-on ("common"))))
+                 (:file "heap" :depends-on ("common"))
+                 (:file "shortest-path" :depends-on ("heap"))))
 

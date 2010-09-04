@@ -6,6 +6,20 @@
   (parent nil :type (or node null))
   (payload nil :read-only t))
 
+(eval-when(:compile-toplevel :load-toplevel)
+(defstruct (red-black-tree-node(:include node)
+                               (:conc-name rb-))
+  (colour 'black :type (member red black))))
+
+(defconstant +rb-nil+
+  (if (boundp '+rb-nil+)
+      +rb-nil+
+      (make-red-black-tree-node :colour 'black))
+  "Sentinel node for red black tree implementation")
+
+(declaim (inline null-node-p))
+(defun null-node-p(x) (or (null x) (eql x +rb-nil+)))
+
 (defstruct (tree (:copier tree-copy) (:constructor nil))
   (root nil :type (or node null))
   (key-fn #'identity :type function :read-only t)
@@ -14,7 +28,7 @@
 
 (defstruct (binary-tree(:include tree)))
 
-(defmethod empty-p((tree tree)) (null (tree-root tree)))
+(defmethod empty-p((tree tree)) (null-node-p (tree-root tree)))
 
 (defun inorder-tree-walk(x &optional (function #'print))
   (when x
@@ -22,9 +36,15 @@
     (funcall function x)
     (inorder-tree-walk (node-right x) function)))
 
-(defmethod map(f (tree binary-tree) &rest args)
+(defmethod traverse(f (tree binary-tree) &rest args)
   (inorder-tree-walk (tree-root tree)
                      (if args #'(lambda(v) (funcall f (cons v args))) f)))
+
+(defmethod rank(x (tree binary-tree))
+  (let ((c 0))
+    (inorder-tree-walk
+     (tree-root tree)
+     #'(lambda(v) (if (eql v x) (return-from rank c) (incf c))))))
 
 (defmethod length((tree binary-tree))
   (let ((c 0))
@@ -36,23 +56,23 @@
     (do((x x (if (funcall comp-fn k (key x))
                  (node-left x)
                  (node-right x))))
-       ((or (null x) (funcall eql-fn k (key x)))
+       ((or (null-node-p x) (funcall eql-fn k (key x)))
         x))))
 
 (defun tree-minimum(x)
   (do((y x (node-left y)))
-     ((null (node-left y)) y)))
+     ((null-node-p (node-left y)) y)))
 
 (defun tree-maximum(x)
   (do((y x (node-right y)))
-     ((null (node-right y)) y)))
+     ((null-node-p (node-right y)) y)))
 
 (defun tree-successor(x)
   (if (node-right x)
       (tree-minimum (node-right x))
       (do((y (node-parent x) (node-parent y))
           (x x y))
-         ((or (null y) (not (eql x (node-right y))))
+         ((or (null-node-p y) (not (eql x (node-right y))))
           y))))
 
 (defun tree-predecessor(x)
@@ -60,7 +80,7 @@
       (tree-maximum (node-right x))
       (do((y (node-parent x) (node-parent y))
           (x x y))
-         ((or (null y) (not (eql x (node-left y))))
+         ((or (null-node-p y) (not (eql x (node-left y))))
           y))))
 
 (defun tree-insert(tree z)
@@ -74,10 +94,10 @@
                     (if (funcall comp-fn zkey (key x))
                         (node-left x)
                         (node-right x))))
-                ((null x) y))))
+                ((null-node-p x) y))))
       (setf (node-parent z) y)
       (cond
-        ((null y); tree was empty
+        ((null-node-p y); tree was empty
          (setf (tree-root tree) z))
         ((funcall comp-fn zkey (key y))
          (setf (node-left y) z))
@@ -86,21 +106,21 @@
 
 (defun transplant(tree u v)
   (cond
-    ((null (node-parent u))
+    ((null-node-p (node-parent u))
      (setf (tree-root tree) v))
     ((eql u (node-left (node-parent u)))
      (setf (node-left (node-parent u)) v))
     (t
      (setf (node-right (node-parent u)) v)))
-  (unless (null v)
+  (unless (null-node-p v)
     (setf (node-parent v) (node-parent u))))
 
 (defun tree-delete(tree z)
   "Delete node z from tree"
   (cond
-    ((null (node-left z))
+    ((null-node-p (node-left z))
      (transplant tree z (node-right z)))
-    ((null (node-right z))
+    ((null-node-p (node-right z))
      (transplant tree z (node-left z)))
     ((let ((y (tree-minimum (node-right z))))
        (when (not (eql (node-parent y) z))
@@ -128,9 +148,9 @@
                       :eql-fn eql-fn
                       :key-fn key-fn)
          (tree-successor n)))
-     ((or (null n) (eql (node-payload n) payload)) n)))
+     ((or (null-node-p n) (eql (node-payload n) payload)) n)))
 
-(defmethod successor((tree binary-tree) x)
+(defmethod successor(x (tree binary-tree))
   (let ((n (tree-payload-search (tree-root tree) x
                                 :comp-fn (tree-comp-fn tree)
                                 :eql-fn (tree-eql-fn tree)
@@ -139,7 +159,7 @@
       (let ((n (tree-successor n)))
         (when n (node-payload n))))))
 
-(defmethod predecessor((tree binary-tree) x)
+(defmethod predecessor(x (tree binary-tree))
   (let ((n (tree-payload-search (tree-root tree) x
                                 :comp-fn (tree-comp-fn tree)
                                 :eql-fn (tree-eql-fn tree)
@@ -158,16 +178,6 @@
                                 :key-fn (tree-key-fn tree))))
     (when n (tree-delete tree n))))
 
-(defstruct (red-black-tree-node(:include node)
-                               (:conc-name rb-))
-  (colour 'black :type (member red black)))
-
-(defconstant +rb-nil+
-  (if (boundp '+rb-nil+)
-      +rb-nil+
-      (make-red-black-tree-node :colour 'black))
-  "Sentinel node for red black tree implementation")
-
 (defstruct (red-black-tree(:include binary-tree)))
 
 (defun make-tree(&key (key-fn #'identity) (comp-fn #'<) (eql-fn #'=))
@@ -179,11 +189,11 @@
 (defun left-rotate(tree x)
   (let ((y (node-right x)))
     (setf (node-right x) (node-left y))
-    (unless (eql (node-left y) +rb-nil+)
+    (unless (null-node-p (node-left y))
       (setf (node-parent (node-left y)) x))
     (setf (node-parent y) (node-parent x))
     (cond
-      ((eql (node-parent x) +rb-nil+)
+      ((null-node-p (node-parent x))
        (setf (tree-root tree) y))
       ((eql x (node-left (node-parent x)))
        (setf (node-left (node-parent x)) y))
@@ -194,7 +204,7 @@
 (defun right-rotate(tree x)
   (let ((y (node-left x)))
     (setf (node-left x) (node-right y))
-    (when (eql (node-right y) +rb-nil+)
+    (when (null-node-p (node-right y))
       (setf (node-parent (node-right y)) x))
     (setf (node-parent y) (node-parent x))
     (cond
@@ -215,10 +225,10 @@
                   (if (funcall comp-fn zkey (funcall key-fn x))
                       (node-left x)
                       (node-right x))))
-              ((eql x +rb-nil+) y))))
+              ((null-node-p x) y))))
     (setf (node-parent z) y)
     (cond
-      ((eql y +rb-nil+)
+      ((null-node-p y)
        (setf (tree-root tree) z))
       ((funcall comp-fn zkey (funcall key-fn y))
        (setf (node-left y) z))
@@ -254,7 +264,7 @@
 
 (defun rb-transplant(tree u v)
   (cond
-    ((eql (node-parent u) +rb-nil+)
+    ((null-node-p (node-parent u))
      (setf (tree-root tree) v))
     ((eql u (node-left (node-parent u)))
      (setf (node-left (node-parent u)) v))
@@ -266,10 +276,10 @@
          (y-original-colour (rb-colour y))
          (x
           (cond
-            ((eql (node-left z) +rb-nil+)
+            ((null-node-p (node-left z))
              (prog1 (node-right z)
                (rb-transplant tree z (node-right z))))
-            ((eql (node-right z) +rb-nil+)
+            ((null-node-p (node-right z))
              (prog1 (node-left z)
                (rb-transplant tree z (node-left z))))
             ((let ((y (tree-minimum (node-right z))))

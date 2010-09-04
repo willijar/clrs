@@ -6,17 +6,21 @@
 (defpackage clrs
   (:use :cl)
   (:nicknames :alg)
-  (:shadow  #:search #:delete #:push #:pop #:map #:length)
+  (:shadow #:search #:delete #:push #:pop #:length)
   (:export
-   ;; general interface
-   #:search #:delete #:insert #:delete #:minimum #:maximum #:map #:length
-   #:successor #:predecessor #:empty-p
+   ;; general
+   #:search #:insert #:delete #:minimum #:maximum #:traverse #:length
+   #:successor #:predecessor #:empty-p #:rank
    #:overflow #:underflow #:extend
-   ;; stack interface
-   #:make-stack #:push #:pop
-   ;; queue interface
+   ;; stack
+   #:make-stack #:push #:pop #:peek
+   ;; queue
    #:make-queue #:enqueue #:dequeque
-   ;; tree interface
+   ;; tree
    #:make-tree
-   ;; heap interface
-   #:heapsort #:make-heap #:make-priority-queue #:map))
+   ;; heap
+   #:heapsort #:make-binary-heap #:key-changed
+   ;; shortest path
+   #:dijkstra #:bellman-ford #:fully-connected-p
+   #:extract-route #:extract-first-hops
+   #:not-connected #:negative-weight-cycle))

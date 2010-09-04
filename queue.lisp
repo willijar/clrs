@@ -109,77 +109,91 @@
 
 ;; general interface
 (defmethod insert(x (q vector-queue)) (enqueue x q))
+
 (defmethod insert(x (q list-queue)) (enqueue x q))
+
 (defmethod search((k integer) (q vector-queue))
-    (let* ((v (implementation-vector s))
+    (let* ((v (implementation-vector q))
            (n (cl:length v))
            (len (length q)))
       (unless (< -1 k len) (invalid-index-error k q))
       (aref v (mod (+ (vector-queue-head q) k) n))))
+
 (defmethod search((k integer) (q list-queue))
   (let ((l (when (>= k 0) (nthcdr k (list-queue-head q)))))
     (if l
       (car l)
       (invalid-index-error k q))))
-(defmethod minimum((q list-queue))
+
+(defmethod peek((q list-queue))
   (let ((l (implementation-head q)))
     (if l (first l) (underflow q))))
-(defmethod minimum((q vector-queue))
+
+(defmethod peek((q vector-queue))
   (let ((head (vector-queue-head q))
         (tail (vector-queue-tail q)))
     (if (= head tail)
         (underflow q)
         (aref (vector-queue-vector q) head))))
-(defmethod maximum((q list-queue))
-  (let ((l (list-queue-tail q)))
-    (if l (first l) (underflow q))))
-(defmethod maximum((q vector-queue))
+
+(defun vector-queue-position(x q)
+  "Return index in vector of item x in q"
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (vector-queue-vector q))
          (n (cl:length v)))
-    (if (= head tail)
-        (underflow q)
-        (aref v (mod (1- tail) n)))))
-(defmethod predecessor(x (s vector-stack))
-  (let* ((head (vector-queue-head q))
-         (v (vector-queue-vector q))
-         (n (cl:length v))
-         (last (mod (1- (vector-queue-tail q)) n)))
-    (do*((i head (mod (1+ i) n))
-        (y (aref v i) (aref v i)))
-       ((or (eql x y) (= i last))
-        (when (and (eql x y) (/= i head) (aref v (mod (1- i) n))))))))
-(defmethod predecessor(x (s list-stack))
-  (mapl
-   #'(lambda(l) (when (eql x (second l)) (return-from predecessor (first l))))
-   (implementation-head s))
-  nil)
-(defmethod successor(x (s vector-stack))
-  (let* ((head (vector-queue-head q))
-         (v (vector-queue-vector q))
-         (n (cl:length v))
-         (last (mod (1- (vector-queue-tail q)) n)))
-    (do*((i head (mod (1+ i) n))
-        (y (aref v i) (aref v i)))
-       ((or (eql x y) (= i last))
-        (when (and (eql x y) (/= i last) (aref v (mod (1+ i) n))))))))
-(defmethod successor(x (s list-stack))
-  (mapl
-   #'(lambda(l) (when (eql x (first l)) (return-from successor (second l))))
-   (implementation-head s))
-  nil)
-(defmethod map(f (s list-stack) &rest args)
-  (cl:map 'nil (if args #'(lambda(v) (apply f (cons v args))) f)
-          (implementation-head s)))
-(defmethod map(f (s vector-stack) &rest args)
-  (let* ((f (if args #'(lambda(v) (apply f (cons v args))) f))
-         (head (vector-queue-head q))
-         (v (vector-queue-vector q))
-         (n (cl:length v))
-         (last (mod (1- (vector-queue-tail q)) n)))
     (do*((i head (mod (1+ i) n))
          (y (aref v i) (aref v i)))
-        ((= i last))
+        ((or (eql x y) (= i tail))
+         (unless (= i tail) i)))))
+
+(defmethod rank(x (q vector-queue))
+  (let ((p (vector-queue-position x q)))
+    (when p
+      (mod (- p (vector-queue-head q)) (cl:length (vector-queue-vector q))))))
+
+(defmethod predecessor(x (q vector-queue))
+  (let* ((p (vector-queue-position x q))
+         (head (vector-queue-head q))
+         (v (vector-queue-vector q))
+         (n (cl:length v)))
+    (when (and p (/= p head)) (aref v (mod (1- p) n)))))
+
+(defmethod predecessor(x (q list-queue))
+  (mapl
+   #'(lambda(l) (when (eql x (second l)) (return-from predecessor (first l))))
+   (implementation-head q))
+  nil)
+
+(defmethod successor(x (q vector-queue))
+  (let* ((p (vector-queue-position x q))
+         (tail (vector-queue-head q))
+         (v (vector-queue-vector q))
+         (n (cl:length v)))
+    (when p
+      (let ((p (mod (1+ p) n)))
+        (when (< p tail) (aref v p))))))
+
+(defmethod successor(x (q list-queue))
+  (mapl
+   #'(lambda(l) (when (eql x (first l)) (return-from successor (second l))))
+   (implementation-head q))
+  nil)q
+
+(defmethod traverse(f (q list-queue) &rest args)
+  (cl:map
+   'nil
+   (if args #'(lambda(v) (apply f (cons v args))) f)
+   (implementation-head q)))
+
+(defmethod traverse(f (q vector-queue) &rest args)
+  (let* ((f (if args #'(lambda(v) (apply f (cons v args))) f))
+         (head (vector-queue-head q))
+         (tail (vector-queue-tail q))
+         (v (vector-queue-vector q))
+         (n (cl:length v)))
+    (do*((i head (mod (1+ i) n))
+         (y (aref v i) (aref v i)))
+        ((= i tail))
       (funcall f y))))
 

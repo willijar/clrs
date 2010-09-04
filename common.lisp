@@ -3,25 +3,30 @@
 
 (in-package :clrs)
 
-(defgeneric search(k s)
-  (:documentation "Given a set s and a key value k,
-  return the element x in S such that x.key = k, or nil if no such
-  element belongs to x"))
-
 (defgeneric insert(x s)
   (:documentation "Augment set s with element x. It is assumed that
   attributes of element x needed by the set implementation have
   already been initialised."))
 
+(defgeneric search(k s)
+  (:documentation "Given a set s and a key value k,
+  return the first element x in S such that x.key = k, or nil if no such
+  element belongs to x"))
+
 (defgeneric delete(x s)
   (:documentation "Given an element x in set s, removes x from s. Note
-  this operations takes the element x, not a key value. Return true if object found and deleted."))
+  this operations takes the element x, not a key value. Return true if
+  object found and deleted."))
 
 (defgeneric minimum(s)
-  (:documentation "Given a totally ordered set s, return the element of s with the smallest key."))
+  (:documentation "Given a totally ordered set s, return the element of s with the 'minimum' key wrt the comparison function."))
 
 (defgeneric maximum(s)
-  (:documentation "Given a totally ordered set s, return the element of s with the largest key."))
+  (:documentation "Given a totally ordered set s, return the element of s with the 'maximum' key wrt the comparison function."))
+
+(defgeneric rank(x s)
+  (:documentation "Given an ordered set s return the 0 based rank of
+  element x in that set or nil if not present"))
 
 (defgeneric successor(x s)
   (:documentation "Given an element x whose key is from a totally
@@ -51,7 +56,7 @@
   (:documentation "Return true if a data structure is empty")
   (:method(s) (zerop (length s))))
 
-(defgeneric map(function structure &rest args)
+(defgeneric traverse(function structure &rest args)
   (:documentation "For each entry in a data structure call the
   designated function with the value and the args. Entries will be
   visited in order if applicable"))
@@ -78,8 +83,6 @@
 (defparameter +standard-heap-extend-size+ 16
   "The standard size by which the underlying arrays are augmented.")
 
-
-
 (defgeneric underflow(s)
   (:documentation "Called when a data structre underflows")
   (:method(s)
@@ -94,7 +97,6 @@
 (defgeneric overflow(s)
   (:documentation "Called when a structure overflows"))
 
-
 (defmethod delete(x (s vector))
   (let ((start (position x s)))
     (when start
@@ -102,6 +104,3 @@
          ((= i (1- (length s))))
         (setf (aref s i) (aref s (1+ i))))
       (decf (fill-pointer s)))))
-
-(defmethod map(f (s sequence) &rest args)
-  (cl:map 'nil (if args #'(lambda(v) (apply f (cons v args))) f) s))
