@@ -9,8 +9,8 @@
   (:shadow #:search #:delete #:push #:pop)
   (:export
    ;; general
-   #:search #:insert #:delete #:minimum #:maximum #:traverse #:length
-   #:successor #:predecessor #:empty-p #:rank #:size
+   #:search #:insert #:delete #:traverse #:length
+   #:successor #:predecessor #:empty-p #:rank #:rank-lookup #:size
    #:overflow #:underflow #:extend
    ;; stack
    #:make-stack #:push #:pop #:peek

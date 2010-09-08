@@ -1,11 +1,4 @@
-
 (in-package :clrs)
-
-(defgeneric enqueue(x q)
-  (:documentation "Add element x to end of queue q"))
-
-(defgeneric dequeue(q)
-  (:documentation "Return next element x from q"))
 
 (defstruct (vector-queue (:include vector-implementation))
   (head 0 :type fixnum)
@@ -29,7 +22,7 @@
   (ecase implementation
     (vector
      (make-vector-queue
-      :vector (make-array initial-size
+      :vector (make-array (1+ initial-size)
                           :element-type element-type
                           :adjustable adjustable)))
     (list (make-list-queue))))
@@ -40,20 +33,26 @@
     (extend(&optional (extension +standard-heap-extend-size+))
         :report "Extend queue"
         :interactive (lambda() (format t "Enter entension: ") (list (read)))
-        (let* ((v (implementation-vector q))
+        (let* ((v (vector-queue-vector q))
                (n (length v))
                (head (vector-queue-head q)))
-          (adjust-array v (+ n extension))
-          (unless (= 0 head)
+          (setf v
+                (setf (vector-queue-vector q)
+                      (adjust-array v (+ n extension))))
+          (unless (>= (vector-queue-tail q) head)
             (setf (subseq v (+ head extension)) (subseq v head n)
                   (vector-queue-head q) (+ head extension)))))))
 
 (defmethod enqueue(x (q vector-queue))
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
-         (v (implementation-vector q))
+         (v (vector-queue-vector q))
          (n (length v)))
-    (when (= head (mod (1+ tail) n)) (overflow q))
+    (when (= head (mod (1+ tail) n))
+      (overflow q)
+      (setf v (vector-queue-vector q)
+            head (vector-queue-head q)
+            n (length v)))
     (prog1
         (setf (aref v tail) x)
       (setf (vector-queue-tail q) (mod (1+ tail) n)))))
@@ -61,7 +60,7 @@
 (defmethod dequeue((q vector-queue))
   (let ((head (vector-queue-head q))
         (tail (vector-queue-tail q))
-        (v (implementation-vector q)))
+        (v (vector-queue-vector q)))
     (if (= head tail)
         (underflow q)
         (prog1
@@ -69,7 +68,7 @@
           (setf (vector-queue-head q)
                 (mod (1+ head) (length v)))))))
 
-(defmethod enqueue((q list-queue) x)
+(defmethod enqueue(x (q list-queue))
   (let ((new-cons (cons x nil)))
     (cond ((list-queue-head q)
            (rplacd (list-queue-tail q) new-cons)
@@ -86,20 +85,22 @@
           (car front)))))
 
 (defmethod push(x (q vector-queue))
-  "Add element to front of a queue"
-  (let* ((head (vector-queue-head q))
-         (tail (vector-queue-tail q))
-         (v (implementation-vector q))
-         (n (length v)))
-    (when (= head (mod (1+ tail) n)) (overflow q))
-    (setf (vector-queue-head q) (mod (1- head) n))
-    (aref v (vector-queue-head q))))
+  (enqueue x q))
+
+;;   "Add element to front of a queue"
+;;   (let* ((head (vector-queue-head q))
+;;          (tail (vector-queue-tail q))
+;;          (v (vector-queue-vector q))
+;;          (n (length v)))
+;;     (when (= head (mod (1+ tail) n)) (overflow q))
+;;     (setf (vector-queue-head q) (mod (1- head) n))
+;;     (aref v (vector-queue-head q))))
 
 (defmethod pop((q vector-queue))
   "Pop element off back of queue"
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
-         (v (implementation-vector q))
+         (v (vector-queue-vector q))
          (n (length v)))
     (if (= head tail)
         (underflow q)
@@ -112,29 +113,12 @@
 
 (defmethod insert(x (q list-queue)) (enqueue x q))
 
-(defmethod search((k integer) (q vector-queue))
-    (let* ((v (implementation-vector q))
+(defmethod lookup-rank((k integer) (q vector-queue))
+    (let* ((v (vector-queue-vector q))
            (n (length v))
            (len (size q)))
       (unless (< -1 k len) (invalid-index-error k q))
       (aref v (mod (+ (vector-queue-head q) k) n))))
-
-(defmethod search((k integer) (q list-queue))
-  (let ((l (when (>= k 0) (nthcdr k (list-queue-head q)))))
-    (if l
-      (car l)
-      (invalid-index-error k q))))
-
-(defmethod peek((q list-queue))
-  (let ((l (implementation-head q)))
-    (if l (first l) (underflow q))))
-
-(defmethod peek((q vector-queue))
-  (let ((head (vector-queue-head q))
-        (tail (vector-queue-tail q)))
-    (if (= head tail)
-        (underflow q)
-        (aref (vector-queue-vector q) head))))
 
 (defun vector-queue-position(x q)
   "Return index in vector of item x in q"
@@ -159,12 +143,6 @@
          (n (length v)))
     (when (and p (/= p head)) (aref v (mod (1- p) n)))))
 
-(defmethod predecessor(x (q list-queue))
-  (mapl
-   #'(lambda(l) (when (eql x (second l)) (return-from predecessor (first l))))
-   (implementation-head q))
-  nil)
-
 (defmethod successor(x (q vector-queue))
   (let* ((p (vector-queue-position x q))
          (tail (vector-queue-head q))
@@ -174,21 +152,8 @@
       (let ((p (mod (1+ p) n)))
         (when (< p tail) (aref v p))))))
 
-(defmethod successor(x (q list-queue))
-  (mapl
-   #'(lambda(l) (when (eql x (first l)) (return-from successor (second l))))
-   (implementation-head q))
-  nil)q
-
-(defmethod traverse(f (q list-queue) &rest args)
-  (cl:map
-   'nil
-   (if args #'(lambda(v) (apply f (cons v args))) f)
-   (implementation-head q)))
-
-(defmethod traverse(f (q vector-queue) &rest args)
-  (let* ((f (if args #'(lambda(v) (apply f (cons v args))) f))
-         (head (vector-queue-head q))
+(defmethod traverse(f (q vector-queue))
+  (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (vector-queue-vector q))
          (n (length v)))
@@ -196,4 +161,22 @@
          (y (aref v i) (aref v i)))
         ((= i tail))
       (funcall f y))))
+
+(defmethod delete(x (q list-queue))
+  (setf (list-queue-head q) (cl:delete x (list-queue-head q)))
+  (when (eql x (car (list-queue-tail q)))
+    (setf (list-queue-tail q) (last (list-queue-head q)))))
+
+(defmethod delete(x (q vector-queue))
+  (let* ((head (vector-queue-head q))
+         (tail (vector-queue-tail q))
+         (v (vector-queue-vector q))
+         (n (length v)))
+    (do*((i head j)
+         (j (mod (1+ i) n) (mod (1+ i) n))
+         (y (aref v i) (aref v i))
+         (found-p (eql x y) (or found-p (eql x y))))
+        ((= i tail) found-p)
+      (when found-p (setf (aref v i) (aref v j))))))
+
 
