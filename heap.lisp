@@ -39,7 +39,7 @@
 (defun heap-maximum(A) (href A 1))
 
 (defun heap-extract(A predicate key &optional index-fn)
-  (when (< (cl:length A) 1)
+  (when (< (length A) 1)
     (underflow A))
   (let ((max (href A 1)))
     (setf (href A 1) (href A (length A)))
@@ -111,7 +111,7 @@
              (if b (setf (gethash a index) b) (gethash a index))))))))))
 
 
-(defmethod length((h binary-heap)) (length (binary-heap-vector h)))
+(defmethod size((h binary-heap)) (length (binary-heap-vector h)))
 (defmethod empty-p((h binary-heap)) (zerop (length (binary-heap-vector h))))
 
 (defmethod enqueue(x (h binary-heap))
@@ -135,7 +135,7 @@
 
 (defmethod peek((h binary-heap))
   (let ((A (binary-heap-vector h)))
-    (unless (< (cl:length A) 1)
+    (unless (< (length A) 1)
       (underflow A))
     (href A 1)))
 

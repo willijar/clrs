@@ -38,7 +38,7 @@
       :report "Extend stack"
       :interactive (lambda() (format t "Enter entension: ") (list (read)))
       (let ((v (implementation-vector s)))
-        (adjust-array v (+ (cl:length v) extension))))))
+        (adjust-array v (+ (length v) extension))))))
 
 (defmethod push(x (s vector-stack))
   (unless (vector-push x (vector-stack-vector s))
@@ -48,7 +48,7 @@
 
 (defmethod pop((s vector-stack))
   (let ((v (vector-stack-vector s)))
-    (if (zerop (cl:length v))
+    (if (zerop (length v))
         (underflow s)
         (vector-pop v))))
 
@@ -69,32 +69,32 @@
 (defmethod delete(x (s vector-stack))
   (delete x (implementation-vector s)))
 
-(defmethod length((s list-stack)) (cl:length (implementation-head s)))
-(defmethod length((s vector-stack)) (cl:length (implementation-vector s)))
+(defmethod size((s list-stack)) (length (implementation-head s)))
+(defmethod size((s vector-stack)) (length (implementation-vector s)))
 (defmethod empty-p((s list-stack)) (null (implementation-head s)))
 
-(defun invalid-index-error(datum structure &key (min 0) (max (length structure)))
+(defun invalid-index-error(datum structure &key (min 0) (max (size structure)))
   (error 'simple-type-error :datum datum :expected-type `(INTEGER ,min ,max)
          :format-control "invalid index ~D in ~A"
          :format-arguments (list datum structure)))
 
 (defmethod search((k integer) (s vector-stack))
   (let* ((v (implementation-vector s))
-         (n (cl:length v)))
+         (n (length v)))
     (if (< -1 k n)
         (aref v (- n k 1))
         (invalid-index-error k s))))
 
 (defmethod search((k integer) (s list-stack))
   (let* ((l (implementation-head s))
-         (n (cl:length l)))
+         (n (length l)))
     (if (< -1 k n)
         (nth (- n k 1) l)
         (invalid-index-error k s))))
 
 (defmethod peek((s vector-stack))
   (let* ((v (implementation-vector s))
-         (n (cl:length v)))
+         (n (length v)))
     (if (zerop n)
         (underflow s)
         (aref v (1- n)))))
@@ -114,7 +114,7 @@
 (defmethod predecessor(x (s vector-stack))
   (let* ((v (implementation-vector s))
          (p (position x v)))
-    (when (and p (< p (- (cl:length v) 2)))
+    (when (and p (< p (- (length v) 2)))
       (aref v (1+ p)))))
 
 (defmethod predecessor(x (s list-stack))
@@ -142,7 +142,7 @@
 (defmethod traverse(f (s vector-stack) &rest args)
   (let* ((f (if args #'(lambda(v) (apply f (cons v args))) f))
          (v (implementation-vector s))
-         (n (cl:length v)))
+         (n (length v)))
     (dotimes(i n)
       (funcall f (aref v (- n i 1))))))
 

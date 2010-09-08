@@ -6,11 +6,11 @@
 (defpackage clrs
   (:use :cl)
   (:nicknames :alg)
-  (:shadow #:search #:delete #:push #:pop #:length)
+  (:shadow #:search #:delete #:push #:pop)
   (:export
    ;; general
    #:search #:insert #:delete #:minimum #:maximum #:traverse #:length
-   #:successor #:predecessor #:empty-p #:rank
+   #:successor #:predecessor #:empty-p #:rank #:size
    #:overflow #:underflow #:extend
    ;; stack
    #:make-stack #:push #:pop #:peek

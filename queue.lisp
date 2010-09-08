@@ -11,9 +11,9 @@
   (head 0 :type fixnum)
   (tail 0 :type fixnum))
 
-(defmethod length((q vector-queue))
+(defmethod size((q vector-queue))
   (mod (- (vector-queue-tail q) (vector-queue-head q))
-       (cl:length (vector-queue-vector q))))
+       (length (vector-queue-vector q))))
 
 (defmethod empty-p((q vector-queue))
   (= (vector-queue-head q) (vector-queue-tail q)))
@@ -41,7 +41,7 @@
         :report "Extend queue"
         :interactive (lambda() (format t "Enter entension: ") (list (read)))
         (let* ((v (implementation-vector q))
-               (n (cl:length v))
+               (n (length v))
                (head (vector-queue-head q)))
           (adjust-array v (+ n extension))
           (unless (= 0 head)
@@ -52,7 +52,7 @@
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (implementation-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (when (= head (mod (1+ tail) n)) (overflow q))
     (prog1
         (setf (aref v tail) x)
@@ -67,7 +67,7 @@
         (prog1
             (aref v head)
           (setf (vector-queue-head q)
-                (mod (1+ head) (cl:length v)))))))
+                (mod (1+ head) (length v)))))))
 
 (defmethod enqueue((q list-queue) x)
   (let ((new-cons (cons x nil)))
@@ -90,7 +90,7 @@
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (implementation-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (when (= head (mod (1+ tail) n)) (overflow q))
     (setf (vector-queue-head q) (mod (1- head) n))
     (aref v (vector-queue-head q))))
@@ -100,7 +100,7 @@
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (implementation-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (if (= head tail)
         (underflow q)
         (progn
@@ -114,8 +114,8 @@
 
 (defmethod search((k integer) (q vector-queue))
     (let* ((v (implementation-vector q))
-           (n (cl:length v))
-           (len (length q)))
+           (n (length v))
+           (len (size q)))
       (unless (< -1 k len) (invalid-index-error k q))
       (aref v (mod (+ (vector-queue-head q) k) n))))
 
@@ -141,7 +141,7 @@
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (vector-queue-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (do*((i head (mod (1+ i) n))
          (y (aref v i) (aref v i)))
         ((or (eql x y) (= i tail))
@@ -150,13 +150,13 @@
 (defmethod rank(x (q vector-queue))
   (let ((p (vector-queue-position x q)))
     (when p
-      (mod (- p (vector-queue-head q)) (cl:length (vector-queue-vector q))))))
+      (mod (- p (vector-queue-head q)) (length (vector-queue-vector q))))))
 
 (defmethod predecessor(x (q vector-queue))
   (let* ((p (vector-queue-position x q))
          (head (vector-queue-head q))
          (v (vector-queue-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (when (and p (/= p head)) (aref v (mod (1- p) n)))))
 
 (defmethod predecessor(x (q list-queue))
@@ -169,7 +169,7 @@
   (let* ((p (vector-queue-position x q))
          (tail (vector-queue-head q))
          (v (vector-queue-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (when p
       (let ((p (mod (1+ p) n)))
         (when (< p tail) (aref v p))))))
@@ -191,7 +191,7 @@
          (head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (vector-queue-vector q))
-         (n (cl:length v)))
+         (n (length v)))
     (do*((i head (mod (1+ i) n))
          (y (aref v i) (aref v i)))
         ((= i tail))

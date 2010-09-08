@@ -46,15 +46,15 @@
 (defstruct (list-implementation (:conc-name implementation-))
   (head nil :type list))
 
-(defgeneric length(s)
+(defgeneric size(s)
   (:documentation "Return the number of elements stored in a data structure")
-  (:method((s sequence)) (cl:length s))
-  (:method((s vector-implementation)) (cl:length (implementation-vector s)))
-  (:method((s list-implementation)) (cl:length (implementation-head s))))
+  (:method((s sequence)) (length s))
+  (:method((s vector-implementation)) (length (implementation-vector s)))
+  (:method((s list-implementation)) (length (implementation-head s))))
 
 (defgeneric empty-p(s)
   (:documentation "Return true if a data structure is empty")
-  (:method(s) (zerop (length s))))
+  (:method(s) (zerop (size s))))
 
 (defgeneric traverse(function structure &rest args)
   (:documentation "For each entry in a data structure call the
