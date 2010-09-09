@@ -10,7 +10,7 @@
 
 (defgeneric search(k s)
   (:documentation "Given a set s and a key value k,
-  return the first element x in S such that x.key = k, or nil if no such
+  return the lowest rank element x in S such that x.key = k, or nil if no such
   element belongs to x"))
 
 (defgeneric delete(x s)
@@ -18,15 +18,12 @@
   this operations takes the element x, not a key value. Return true if
   object found and deleted."))
 
-(defgeneric minimum(s)
-  (:documentation "Given a totally ordered set s, return the element of s with the 'minimum' key wrt the comparison function."))
-
-(defgeneric maximum(s)
-  (:documentation "Given a totally ordered set s, return the element of s with the 'maximum' key wrt the comparison function."))
-
 (defgeneric rank(x s)
   (:documentation "Given an ordered set s return the 0 based rank of
-  element x in that set or nil if not present"))
+  element x in that set or nil if x not present"))
+
+(defgeneric rank-lookup(r s)
+  (:documentation "Return the element x in sequence s with rank r."))
 
 (defgeneric successor(x s)
   (:documentation "Given an element x whose key is from a totally
@@ -38,28 +35,46 @@
   ordered set s, return the next smaller element in s or nil of x is
   the minimum element"))
 
+(defgeneric size(s)
+  (:documentation "Return the number of elements stored in a data structure"))
+
+(defgeneric empty-p(s)
+  (:documentation "Return true if a data structure is empty"))
+
+(defgeneric traverse(f s)
+  (:documentation "For each entry in a data structure call the
+  designated function with the value. Entries will be
+  visited in order if applicable"))
+
+(defgeneric push(x s)
+  (:documentation "Augment stack s with element x"))
+
+(defgeneric pop(s)
+  (:documentation "pop last element from stack s"))
+
+(defgeneric peek(s)
+  (:documentation "Return value of next element on set s without
+  removing it."))
+
+(defgeneric enqueue(x q)
+  (:documentation "Add element x to end of queue q"))
+
+(defgeneric dequeue(q)
+  (:documentation "Return next element x from queue q"))
+
+(defparameter +standard-heap-allocation-size+ 16
+  "The standard allocation block size for the underlying arrays.")
+
+(defparameter +standard-heap-extend-size+ 16
+  "The standard size by which the underlying arrays are augmented.")
+
 (defstruct (vector-implementation (:conc-name implementation-))
   (vector
    (make-array +standard-heap-allocation-size+ :fill-pointer 0 :adjustable t)
-   :type vector :read-only t))
+   :type vector))
 
 (defstruct (list-implementation (:conc-name implementation-))
   (head nil :type list))
-
-(defgeneric size(s)
-  (:documentation "Return the number of elements stored in a data structure")
-  (:method((s sequence)) (length s))
-  (:method((s vector-implementation)) (length (implementation-vector s)))
-  (:method((s list-implementation)) (length (implementation-head s))))
-
-(defgeneric empty-p(s)
-  (:documentation "Return true if a data structure is empty")
-  (:method(s) (zerop (size s))))
-
-(defgeneric traverse(function structure &rest args)
-  (:documentation "For each entry in a data structure call the
-  designated function with the value and the args. Entries will be
-  visited in order if applicable"))
 
 (define-condition clrm-error(error)
   ((structure :reader error-structure :initarg :structure))
@@ -77,12 +92,6 @@
   (:documentation "Data structure Underflow")
   (:report (lambda(c strm) (format strm "Underflow: ~A" (error-structure c)))))
 
-(defparameter +standard-heap-allocation-size+ 16
-  "The standard allocation block size for the underlying arrays.")
-
-(defparameter +standard-heap-extend-size+ 16
-  "The standard size by which the underlying arrays are augmented.")
-
 (defgeneric underflow(s)
   (:documentation "Called when a data structre underflows")
   (:method(s)
@@ -97,10 +106,57 @@
 (defgeneric overflow(s)
   (:documentation "Called when a structure overflows"))
 
-(defmethod delete(x (s vector))
-  (let ((start (position x s)))
-    (when start
-      (do((i start (1+ i)))
-         ((= i (1- (length s))))
-        (setf (aref s i) (aref s (1+ i))))
-      (decf (fill-pointer s)))))
+(defun invalid-index-error(datum structure &key (min 0) (max (size structure)))
+  (error 'simple-type-error :datum datum :expected-type `(INTEGER ,min ,max)
+         :format-control "invalid index ~D in ~A"
+         :format-arguments (list datum structure)))
+
+;; derivative implementations
+(defmethod successor(x s)
+  (let ((r (rank x s)))
+    (when (and r (< r (- (size s) 2)))
+      (rank-lookup (1+ r) s))))
+
+(defmethod predecessor(x s)
+  (let ((r (rank x s)))
+    (when (and r (> r 0))
+      (rank-lookup (1- r) s))))
+
+
+(defmethod empty-p(s)
+  (zerop (size s)))
+
+(defmethod size((s list-implementation)) (length (implementation-head s)))
+
+(defmethod size((s vector-implementation)) (length (implementation-vector s)))
+
+(defmethod empty-p((s list-implementation)) (null (implementation-head s)))
+
+(defmethod rank(x (s list-implementation))
+  (position x (implementation-head s)))
+
+(defmethod lookup-rank(r (q list-implementation))
+  (let ((l (when (>= r 0) (nthcdr r (list-queue-head q)))))
+    (if l
+      (car l)
+      (invalid-index-error r q))))
+
+(defmethod predecessor(x (q list-implementation))
+  (mapl
+   #'(lambda(l) (when (eql x (second l)) (return-from predecessor (first l))))
+   (implementation-head q))
+  nil)
+
+(defmethod successor(x (q list-implementation))
+  (mapl
+   #'(lambda(l) (when (eql x (first l)) (return-from successor (second l))))
+   (implementation-head q))
+  nil)
+
+(defmethod traverse(f (q list-implementation))
+  (cl:map 'nil f (implementation-head q)))
+
+(defmethod peek(s)
+  (if (empty-p s)
+      (underflow s)
+      (rank-lookup 0 s)))

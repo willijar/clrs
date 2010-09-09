@@ -79,10 +79,10 @@
 (defmethod dequeue((q list-queue))
   (let ((front (list-queue-head q)))
     (if front
-        (underflow q)
         (progn
           (setf (list-queue-head q) (rest front))
-          (car front)))))
+          (car front))
+        (underflow q))))
 
 (defmethod push(x (q vector-queue))
   (enqueue x q))

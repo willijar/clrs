@@ -5,12 +5,31 @@
   (right nil :type (or node null))
   (parent nil :type (or node null))
   (payload nil :read-only t)
-  (size 0 :type fixnum))
+  (size 1 :type fixnum))
+
+(defmethod print-object((n node) (os stream))
+  (if *print-readably*
+      (call-next-method)
+      (format os "~%#<node ~A size=~D~%~@<  ~@;l=~A~%r=~A~:>>"
+              (node-payload n)
+              (node-size n)
+              (node-left n)
+              (node-right n))))
 
 (eval-when(:compile-toplevel :load-toplevel)
 (defstruct (red-black-tree-node(:include node)
                                (:conc-name rb-))
   (colour 'black :type (member red black))))
+
+(defmethod print-object((n red-black-tree-node) (os stream))
+  (if *print-readably*
+      (call-next-method)
+      (format os "~%#<~A-node ~A size=~D~%~@<  ~@;l=~A~%r=~A~:>>"
+              (rb-colour n)
+              (node-payload n)
+              (node-size n)
+              (node-left n)
+              (node-right n))))
 
 (defconstant +rb-nil+
   (if (boundp '+rb-nil+)
@@ -20,6 +39,30 @@
 
 (declaim (inline null-node-p))
 (defun null-node-p(x) (or (null x) (eql x +rb-nil+)))
+
+(declaim (inline nleft nright (setf node-left-child) (setf node-right-child)))
+(defun nleft(n)
+  (let ((l (node-left n))) (if (null-node-p l) 0 (node-size l))))
+(defun nright(n)
+  (let ((r (node-right n))) (if (null-node-p r) 0 (node-size r))))
+
+(defun node-size-fix(n)
+  (let ((diff (- (+ (nleft n) (nright n) 1) (node-size n))))
+    (do((n n (node-parent n)))
+       ((null-node-p n))
+      (incf (node-size n) diff))))
+
+(defun (setf node-left-child)(child parent)
+  (prog1
+      (setf (node-left parent) child)
+    (node-size-fix parent)
+    (when child (setf (node-parent child) parent))))
+
+(defun (setf node-right-child)(child parent)
+  (prog1
+      (setf (node-right parent) child)
+    (node-size-fix parent)
+    (when child (setf (node-parent child) parent))))
 
 (defstruct (tree (:copier tree-copy) (:constructor nil))
   (root nil :type (or node null))
@@ -37,9 +80,8 @@
     (funcall function x)
     (inorder-tree-walk (node-right x) function)))
 
-(defmethod traverse(f (tree binary-tree) &rest args)
-  (inorder-tree-walk (tree-root tree)
-                     (if args #'(lambda(v) (funcall f (cons v args))) f)))
+(defmethod traverse(f (tree binary-tree))
+  (inorder-tree-walk (tree-root tree) f))
 
 (defmethod size((tree binary-tree))
   (let ((root (tree-root tree)))
@@ -71,36 +113,11 @@
 
 (defun tree-predecessor(x)
   (if (node-left x)
-      (tree-maximum (node-right x))
+      (tree-maximum (node-left x))
       (do((y (node-parent x) (node-parent y))
           (x x y))
          ((or (null-node-p y) (not (eql x (node-left y))))
           y))))
-
-(defun tree-insert(tree z)
-  "Insert node z into tree"
-  (let ((comp-fn (tree-comp-fn tree))
-        (key-fn (tree-key-fn tree)))
-    (flet ((key(z) (funcall key-fn (node-payload z))))
-      (let*((zkey (key z)))
-        (labels((node-insert(x y) ; recursevely add node
-           (cond
-             ((null-node-p x)
-              (cond
-                ((null-node-p y); tree was empty
-                 (setf (tree-root tree) z))
-                ((funcall comp-fn zkey (key y))
-                 (setf (node-left y) z))
-                 (t
-                  (setf (node-right y) z)))
-              (setf (node-parent z) y
-                    (node-size z) 1))
-             (t
-              (node-insert (if (funcall comp-fn zkey (key x))
-                               (node-left x)
-                               (node-right x)) x)
-              (incf (node-size x))))))
-          (node-insert (tree-root tree) nil))))))
 
 ;; (defun tree-insert(tree z)
 ;;   "Insert node z into tree"
@@ -108,31 +125,52 @@
 ;;         (key-fn (tree-key-fn tree)))
 ;;     (flet ((key(z) (funcall key-fn (node-payload z))))
 ;;       (let*((zkey (key z)))
-;;             (y (do((y nil x)
-;;                  (x (tree-root tree)
-;;                     (if (funcall comp-fn zkey (key x))
-;;                         (node-left x)
-;;                         (node-right x))))
-;;                 ((null-node-p x) y))))
-;;       (setf (node-parent z) y)
-;;       (cond
-;;         ((null-node-p y); tree was empty
-;;          (setf (tree-root tree) z))
-;;         ((funcall comp-fn zkey (key y))
-;;          (setf (node-left y) z))
-;;         (t
-;;          (setf (node-right y) z)))))))
+;;         (labels((node-insert(x y) ; recursevely add node
+;;            (cond
+;;              ((null-node-p x)
+;;               (cond
+;;                 ((null-node-p y); tree was empty
+;;                  (setf (tree-root tree) z))
+;;                 ((funcall comp-fn zkey (key y))
+;;                  (setf (node-left-child y) z))
+;;                  (t
+;;                   (setf (node-right-child y) z)))
+;;               (setf (node-parent z) y
+;;                     (node-size z) 1))
+;;              (t
+;;               (node-insert (if (funcall comp-fn zkey (key x))
+;;                                (node-left x)
+;;                                (node-right x)) x)
+;;               (incf (node-size x))))))
+;;           (node-insert (tree-root tree) nil))))))
+
+(defun tree-insert(tree z)
+  "Insert node z into tree"
+  (let ((comp-fn (tree-comp-fn tree))
+        (key-fn (tree-key-fn tree)))
+    (flet ((key(z) (funcall key-fn (node-payload z))))
+      (let((zkey (key z)))
+        (do((y nil x)
+            (x (tree-root tree)
+               (if (funcall comp-fn zkey (key x))
+                   (node-left x)
+                   (node-right x))))
+           ((null-node-p x)
+            (cond
+              ((null-node-p y); tree was empty
+               (setf (tree-root tree) z))
+              ((funcall comp-fn zkey (key y))
+               (setf (node-left-child y) z))
+              (t
+               (setf (node-right-child y) z))))))) ))
 
 (defun transplant(tree u v)
-  (cond
-    ((null-node-p (node-parent u))
-     (setf (tree-root tree) v))
-    ((eql u (node-left (node-parent u)))
-     (setf (node-left (node-parent u)) v))
-    (t
-     (setf (node-right (node-parent u)) v)))
-  (unless (null-node-p v)
-    (setf (node-parent v) (node-parent u))))
+  (let ((parent (node-parent u)))
+    (if (null-node-p parent)
+        (setf (tree-root tree) v)
+        (if (eql u (node-left parent))
+            (setf (node-left-child parent) v)
+            (setf (node-right-child parent) v)))))
 
 (defun tree-delete(tree z)
   "Delete node z from tree"
@@ -144,11 +182,9 @@
     ((let ((y (tree-minimum (node-right z))))
        (when (not (eql (node-parent y) z))
          (transplant tree y (node-right y))
-         (setf (node-right y) (node-right z)
-               (node-parent (node-right y)) y))
+         (setf (node-right-child y) (node-right z)))
        (transplant tree z y)
-       (setf (node-left y) (node-left z)
-             (node-parent (node-left y)) y)))))
+       (setf (node-left-child y) (node-left z))))))
 
 (defmethod search(k (tree binary-tree))
   (let ((x (tree-search (tree-root tree) k
@@ -157,25 +193,48 @@
                         :key-fn (tree-key-fn tree))))
     (when x (node-payload x))))
 
-(defmethod minimum((tree binary-tree)) (node-payload (tree-minimum tree)))
-(defmethod maximum((tree binary-tree)) (node-payload (tree-maximum tree)))
-
 (defun tree-payload-search
     (x payload &key (comp-fn #'<) (eql-fn #'=) (key-fn #'identity))
-  (do((n (tree-search x (funcall key-fn x)
+  (do((n (tree-search x (funcall key-fn payload)
                       :comp-fn comp-fn
                       :eql-fn eql-fn
                       :key-fn key-fn)
          (tree-successor n)))
      ((or (null-node-p n) (eql (node-payload n) payload)) n)))
 
+
+(defun node-rank(n tree)
+  (let ((root (tree-root tree))
+        (r (nleft n)))
+    (do((n n p)
+        (p (node-parent n) (node-parent n)))
+       ((eql n root) r)
+      (if (eql n (node-right p))
+          (incf r (- (node-size p) (node-size n)))))))
+
 (defmethod rank(x (tree binary-tree))
   (let ((n (tree-payload-search (tree-root tree) x
                                 :comp-fn (tree-comp-fn tree)
                                 :eql-fn (tree-eql-fn tree)
                                 :key-fn (tree-key-fn tree))))
-    (when n
-      (if (node-left n) (node-size (node-left n)) 0))))
+    (when n (node-rank n tree))))
+
+(defmethod rank-lookup(r (tree binary-tree))
+  (let ((root (tree-root tree)))
+    (when root
+      (when (or (< r 0) (> r (1- (node-size root))))
+        (invalid-index-error r tree))
+      (let* ((y root)
+             (rank (nleft y)))
+        (loop
+           (cond
+             ((= r rank) (return (node-payload y)))
+             ((> r rank)
+              (setf y (node-right y)
+                    rank (+ rank 1 (nleft y))))
+             ((< r rank)
+              (setf y (node-left y)
+                    rank (- rank (nright y) 1)))))))))
 
 (defmethod successor(x (tree binary-tree))
   (let ((n (tree-payload-search (tree-root tree) x
@@ -196,7 +255,7 @@
         (when n (node-payload n))))))
 
 (defmethod insert(x (tree binary-tree))
-  (tree-insert tree (make-instance 'node :payload x)))
+  (tree-insert tree (make-node :payload x)))
 
 (defmethod delete(x (tree binary-tree))
   (let ((n (tree-payload-search (tree-root tree) x
@@ -215,7 +274,7 @@
 
 (defun left-rotate(tree x)
   (let ((y (node-right x)))
-    (setf (node-right x) (node-left y))
+    (setf (node-right-child x) (node-left y))
     (unless (null-node-p (node-left y))
       (setf (node-parent (node-left y)) x))
     (setf (node-parent y) (node-parent x))
@@ -223,14 +282,14 @@
       ((null-node-p (node-parent x))
        (setf (tree-root tree) y))
       ((eql x (node-left (node-parent x)))
-       (setf (node-left (node-parent x)) y))
-      ((setf (node-right (node-parent x)) y)))
-    (setf (node-left y) x
+       (setf (node-left-child (node-parent x)) y))
+      ((setf (node-right-child (node-parent x)) y)))
+    (setf (node-left-child y) x
           (node-parent x) y)))
 
 (defun right-rotate(tree x)
   (let ((y (node-left x)))
-    (setf (node-left x) (node-right y))
+    (setf (node-left-child x) (node-right y))
     (when (null-node-p (node-right y))
       (setf (node-parent (node-right y)) x))
     (setf (node-parent y) (node-parent x))
@@ -238,14 +297,14 @@
       ((not (node-parent x))
        (setf (tree-root tree) y))
       ((eql x (node-right (node-parent x)))
-       (setf (node-right (node-parent x)) y))
-      ((setf (node-left (node-parent x)) y)))
-    (setf (node-right y) x
+       (setf (node-right-child (node-parent x)) y))
+      ((setf (node-left-child (node-parent x)) y)))
+    (setf (node-right-child y) x
           (node-parent x) y)))
 
 (defun rb-insert(tree z)
   (tree-insert tree z)
-  (setf (node-left z) +rb-nil+
+  (setf (node-left-child z) +rb-nil+
         (node-right z) +rb-nil+
         (rb-colour z) 'red)
   (rb-insert-fixup tree z))
@@ -278,8 +337,8 @@
     ((null-node-p (node-parent u))
      (setf (tree-root tree) v))
     ((eql u (node-left (node-parent u)))
-     (setf (node-left (node-parent u)) v))
-    ((setf (node-right (node-parent u)) v)))
+     (setf (node-left-child (node-parent u)) v))
+    ((setf (node-right-child (node-parent u)) v)))
   (setf (node-parent v) (node-parent u)))
 
 (defun rb-delete(tree z)
@@ -300,10 +359,10 @@
                    ((eql (node-parent y) z) (setf (node-parent (node-right y)) y))
                    (t
                     (rb-transplant tree y (node-right y))
-                    (setf (node-right y) (node-right z)
+                    (setf (node-right-child y) (node-right z)
                           (node-parent (node-right y)) y)))
                  (rb-transplant tree z y)
-                 (setf (node-left y) (node-left z)
+                 (setf (node-left-child y) (node-left z)
                        (node-parent (node-left y)) y
                        (rb-colour y) (rb-colour z))))))))
     (when (eql y-original-colour 'black)
@@ -360,7 +419,7 @@
 (defmethod insert(z (tree red-black-tree))
   (rb-insert tree (make-red-black-tree-node :payload z)))
 
-(defmethod delete(x (tree binary-tree))
+(defmethod delete(x (tree red-black-tree))
   (let ((n (tree-payload-search (tree-root tree) x
                                 :comp-fn (tree-comp-fn tree)
                                 :eql-fn (tree-eql-fn tree)
