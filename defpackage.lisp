@@ -17,7 +17,7 @@
    ;; queue
    #:make-queue #:enqueue #:dequeque
    ;; tree
-   #:make-tree
+   #:make-tree #:make-binary-tree #:make-red-black-tree
    ;; heap
    #:heapsort #:make-binary-heap #:key-changed
    ;; shortest path
