@@ -51,17 +51,21 @@
     max))
 
 (defun heap-key-changed(A i predicate key-fn &optional index-fn)
-   "Note this only work if key is increased in a minimum heap or decreased in a maximum heap"
+   "Note this only work if key is increased in a minimum heap or
+decreased in a maximum heap"
      (do((i i p)
          (p (hparent i) (hparent i)))
-        ((or (= i 1) (funcall predicate (funcall key-fn (href A p)) (funcall key-fn (href A i)))) i)
+        ((or (= i 1)
+             (funcall predicate
+                      (funcall key-fn (href A p))
+                      (funcall key-fn (href A i)))) i)
        (rotatef (href A i) (href A p))
        (when index-fn
-         (funcall index-fn (href A 1) 1)
+         (funcall index-fn (href A i) i)
          (funcall index-fn (href A p) p))))
 
 (defun heap-insert(A value predicate key &optional index-fn)
-  (vector-push value A)
+  (funcall index-fn value (1+ (vector-push value A)))
   (heap-key-changed A (length A) predicate key index-fn))
 
 (defun heap-delete(A i predicate key &optional index-fn)
@@ -79,14 +83,17 @@
   (comp-fn #'< :type function :read-only t)
   (index-fn nil :type (or function null) :read-only t))
 
-(defun make-priority-queue(&key (initial-size  +standard-heap-allocation-size+)
+(defun make-binary-heap(&key (initial-size  +standard-heap-allocation-size+)
                            (adjustable t)
                            (element-type t)
                            (key-fn #'identity)
                            (comp-fn #'<)
                            (index nil))
   (%make-binary-heap
-   :vector (make-array initial-size :element-type element-type :adjustable adjustable)
+   :vector (make-array initial-size
+                       :element-type element-type
+                       :fill-pointer 0
+                       :adjustable adjustable)
    :key-fn key-fn
    :comp-fn comp-fn
    :index-fn
@@ -98,7 +105,8 @@
         (if b (setf (aref index a) b) (aref index a))))
      (hash-table
       (lambda(a &optional b)
-        (if b (setf (gethash a index) b) (gethash a index))))
+        (if b (if (< b 0) (remhash a index) (setf (gethash a index) b))
+            (gethash a index))))
      (symbol
       (ecase index
         (vector
@@ -108,22 +116,24 @@
         (hash-table
          (let ((index (make-hash-table)))
            (lambda(a &optional b)
-             (if b (setf (gethash a index) b) (gethash a index))))))))))
-
+             (if b (if (< b 0) (remhash a index) (setf (gethash a index) b))
+                 (gethash a index))))))))))
 
 (defmethod size((h binary-heap)) (length (binary-heap-vector h)))
 (defmethod empty-p((h binary-heap)) (zerop (length (binary-heap-vector h))))
 
 (defmethod enqueue(x (h binary-heap))
   (let ((v (binary-heap-vector h)))
-    (when (= (length v) (array-dimension v 0))
+    (when (= (fill-pointer v) (array-dimension v 0))
       (restart-case
           (error 'overflow :structure h)
         (extend(&optional (extension +standard-heap-allocation-size+))
           :report "Extend binary heap"
           :interactive (lambda() (format t "Enter entension: ") (list (read)))
-          (adjust-array v (+ (length v) extension)))))
-    (heap-insert v x (binary-heap-comp-fn h) (binary-heap-key-fn h) (binary-heap-index-fn h))))
+          (setf (binary-heap-vector h)
+                (setf v (adjust-array v (+ (length v) extension)))))))
+    (heap-insert v x (binary-heap-comp-fn h) (binary-heap-key-fn h)
+                 (binary-heap-index-fn h))))
 
 (defmethod insert(x (h binary-heap)) (enqueue x h))
 
