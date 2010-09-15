@@ -113,7 +113,7 @@
 
 (defmethod insert(x (q list-queue)) (enqueue x q))
 
-(defmethod lookup-rank((k integer) (q vector-queue))
+(defmethod rank-lookup((k integer) (q vector-queue))
     (let* ((v (vector-queue-vector q))
            (n (length v))
            (len (size q)))

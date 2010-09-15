@@ -135,7 +135,7 @@
 (defmethod rank(x (s list-implementation))
   (position x (implementation-head s)))
 
-(defmethod lookup-rank(r (q list-implementation))
+(defmethod rank-lookup(r (q list-implementation))
   (let ((l (when (>= r 0) (nthcdr r (list-queue-head q)))))
     (if l
       (car l)
