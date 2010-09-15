@@ -62,6 +62,9 @@
 (defgeneric dequeue(q)
   (:documentation "Return next element x from queue q"))
 
+(defgeneric key-changed(x h)
+  (:documentation "Notify set h that key value of element x has changed"))
+
 (defparameter +standard-heap-allocation-size+ 16
   "The standard allocation block size for the underlying arrays.")
 

@@ -152,6 +152,9 @@ decreased in a maximum heap"
 (defmethod key-changed(x (h binary-heap))
   (let ((f (binary-heap-index-fn h)))
     (unless f (error "key-changed not implemented for unindexed heap"))
+    (when (eql (binary-heap-key-fn h) #'identity)
+      (error "cannot use key-changed if object key is identity - use
+      delete and insert instead"))
     (let ((i (funcall f x)))
       (unless (>= i 0) (error "~A not found in ~A" x h))
       (heap-key-changed (binary-heap-vector h)
@@ -170,3 +173,14 @@ decreased in a maximum heap"
                      (binary-heap-comp-fn h)
                      (binary-heap-key-fn h)
                      f)))))
+
+(let ((fib (make-array 2 :element-type '(integer 0)
+                         :adjustable t
+                         :initial-contents '(1 2))))
+(defun fibonacci(i)
+  (when (>= i (length fib))
+    (setf fib (adjust-array fib (1+ i) :initial-element 0)))
+  (let ((v (aref fib i)))
+    (if (zerop v)
+        (setf (aref fib i) (+ (fibonacci (- i 2)) (fibonacci (1- i))))
+        v))))

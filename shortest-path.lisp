@@ -53,7 +53,7 @@ and the source points to itself"
           (aref previous source) source)
     ;; could also allow multiple values for previous and d to allow for
     ;; multiple shortest routes
-    (let ((q (make-priority-queue
+    (let ((q (make-binary-heap
               :initial-size n
               :element-type 'fixnum
               :key-fn #'(lambda(i) (aref costs i))
@@ -89,7 +89,7 @@ using previous output from dijkstra"
       (setf (aref first-hops i)
             (handler-case
                 (second (extract-route i previous))
-              ((not-connected(e) -1)))))
+              (not-connected(e) (declare (ignore e))  -1))))
     first-hops))
 
 (defun bellman-ford(source n &key
