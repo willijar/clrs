@@ -4,9 +4,7 @@
   ((left :type (or node null) :reader left)
    (right :type (or node null) :reader right)
    (parent :type (or node null) :reader parent)
-   (payload  :reader payload)))
-
-
+   (payload  :reader payload :initarg :payload)))
 
 (defgeneric null-node(node)
   (:documentation "return constant sentinel node")
@@ -14,12 +12,11 @@
 
 (declaim (inline null-node-p))
 (defun null-node-p(node)
-  (eql node (null-node node)))
+  (not (slot-boundp node 'payload)))
 
 (defmethod initialize-instance :after ((n node) &key &allow-other-keys)
-  (let ((null (slot-value n 'null)))
     (dolist(slot '(parent left right))
-      (setf (slot-value n slot) null))))
+      (setf (slot-value n slot) (null-node n))))
 
 (defmethod print-object((n node) os)
   (print-unreadable-object(n os :type t :identity t)
@@ -27,8 +24,11 @@
       (format os "~A" (payload n)))))
 
 (defclass node-size()
-  ((size :initform 1 :type fixnum :initarg :size))
+  ((size :initform 0 :type fixnum :initarg :size))
    (:documentation "Mixing for handline nodes that maintain size information."))
+
+(defmethod initialize-instance :after ((n node-size) &key (payload nil payload-p) &allow-other-keys)
+  (when payload-p (setf (slot-value n 'size) 1)))
 
 (defmethod size((n null)) 0)
 
@@ -43,16 +43,14 @@
         (setf (slot-value n 'size) v)
         (incf (size (parent n)) dv)))))
 
-(defclass red-black-node(node)
+(defclass red-black-node(node node-size)
   ((colour :initform 'red :type (member red black)
            :initarg :colour :accessor colour)))
 
-(defconstant +rb-sentinel+
-  (if (boundp '+rb-sentinel+)
-      +rb-sentinel+
-      (make-instance 'red-black-node :colour 'black :size 0 :payload nil)))
-
-(defmethod null-node((node red-black-node)) +rb-sentinel+)
+(defmethod null-node((node red-black-node))
+  (load-time-value
+   (make-instance 'red-black-node :colour 'black :size 0)
+   t))
 
 (defmethod print-object((n red-black-node) os)
   (print-unreadable-object(n os :type t :identity t)
@@ -76,7 +74,7 @@
      (setf (size parent) (+ 1 (size child) (size (left parent))))))
 
 (defclass binary-tree()
-  ((root :type node :reader root :initform :root)
+  ((root :type node :reader root)
    (key-fn :type function :initform #'identity
            :initarg :key-fn :reader key-fn)
    (comp-fn :type function :initform #'<
@@ -84,6 +82,9 @@
    (eql-fn :type function :initform #'=
            :initarg :eql-fn :reader eql-fn)
    (node-class :initarg :node-class :initform 'node :reader node-class)))
+
+(defmethod initialize-instance :after((tree binary-tree) &key &allow-other-keys)
+  (setf (root tree) (null-node (make-instance (node-class tree)))))
 
 (defmethod empty-p((tree binary-tree)) (null-node-p (root tree)))
 
@@ -154,15 +155,17 @@
                  ((null-node-p x)
                   (if (funcall comp-fn zkey (key y))
                       (setf (left y) z)
-                      (setf (right y) z))))))) ))
+                      (setf (right y) z))))))) )
+  z)
 
 (defun transplant(tree u v)
   (let ((parent (parent u)))
-    (if (null-node-p parent)
-        (setf (root tree) v)
-        (if (eql u (left parent))
-            (setf (left parent) v)
-            (setf (right parent) v)))))
+    (cond
+      ((null-node-p parent)
+       (setf (root tree) v))
+      ((eql u (left parent))
+       (setf (left parent) v))
+      ((setf (right parent) v)))))
 
 (defun tree-delete(tree z)
   "Delete node z from tree"
@@ -268,47 +271,37 @@
 (defun left-rotate(tree x)
   (let ((y (right x)))
     (setf (right x) (left y))
-    (cond
-      ((null-node-p (parent x))
-       (setf (root tree) y))
-      ((eql x (left (parent x)))
-       (setf (left (parent x)) y))
-      ((setf (right (parent x)) y)))
+    (transplant tree x y)
     (setf (left y) x)))
 
-(defun right-rotate(tree x)
-  (let ((y (left x)))
-    (setf (left x) (right y))
-    (cond
-      ((not (parent x))
-       (setf (root tree) y))
-      ((eql x (right (parent x)))
-       (setf (right (parent x)) y))
-      ((setf (left (parent x)) y)))
-    (setf (right y) x)))
+(defun right-rotate(tree y)
+  (let ((x (left y)))
+    (setf (left y) (right x))
+    (transplant tree y x)
+    (setf (right x) y)))
 
 (defun rb-insert-fixup(tree z)
-  (flet((fixup(side rot1 rot2)
-          (let ((y (funcall side (parent (parent z)))))
-            (cond
-            ((eql (colour y) 'red)
-             (setf (colour (parent z)) 'black
-                   (colour y) 'black
-                   (colour (parent (parent z))) 'red
-                   z (parent (parent z))))
-            (t
-             (when (eql z (funcall side (parent z)))
-               (setf z (parent z))
-               (funcall rot1 tree z))
-             (setf (colour (parent z)) 'black
-                   (colour (parent (parent z))) 'red)
-             (funcall rot2 tree (parent (parent z))))))))
   (loop
      (unless (eql (colour (parent z)) 'red) (return))
-     (if (eql (parent z) (left (parent (parent z))))
-         (fixup #'right #'left-rotate #'right-rotate)
-         (fixup #'left  #'right-rotate #'left-rotate)))
-  (setf (colour (root tree)) 'black)))
+     (flet((fixup(side rot1 rot2)
+             (let ((y (funcall side (parent (parent z)))))
+               (cond
+                 ((eql (colour y) 'red)
+                  (setf (colour (parent z)) 'black
+                        (colour y) 'black
+                        (colour (parent (parent z))) 'red
+                        z (parent (parent z))))
+                 (t
+                  (when (eql z (funcall side (parent z)))
+                    (setf z (parent z))
+                    (funcall rot1 tree z))
+                  (setf (colour (parent z)) 'black
+                        (colour (parent (parent z))) 'red)
+                  (funcall rot2 tree (parent (parent z))))))))
+       (if (eql (parent z) (left (parent (parent z))))
+           (fixup #'right #'left-rotate #'right-rotate)
+           (fixup #'left  #'right-rotate #'left-rotate))))
+  (setf (colour (root tree)) 'black))
 
 (defun rb-delete(tree z)
   (let*((y z)
@@ -379,8 +372,8 @@
                  (setf x (root tree)))))))
   (setf (colour x) 'black))
 
-(defmethod insert :after (z (tree red-black-tree))
-  (rb-insert-fixup tree z))
+(defmethod insert(x (tree red-black-tree))
+  (rb-insert-fixup tree (call-next-method)))
 
 (defmethod delete(x (tree red-black-tree))
   (let ((n (tree-payload-search (root tree) x
