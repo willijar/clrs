@@ -19,6 +19,8 @@
 (defun fully-connected-p(n &key (edges-fn #'identity))
   "Given a graph as a sequence of sequences of
 outgoing edges indexes determine if network is fully connected."
+  (if (vectorp n)
+      (fully-connected-p (length n) :edges-fn #'(lambda(i) (aref n i)))
   (let* ((connected (make-array n :element-type 'bit :initial-element 0))
          (count 1))
     (setf (sbit connected 0) 1)
@@ -30,8 +32,8 @@ outgoing edges indexes determine if network is fully connected."
                (when (= (sbit connected j) 0)
                  (setf (sbit connected j) 1)
                  (incf count)
-                 (push j to-check)))
-           (funcall edges-fn i)))))
+                 (cl:push j to-check)))
+           (funcall edges-fn i))))))
 
 (defun dijkstra(source n &key
                 (edges-fn #'identity)
