@@ -84,7 +84,7 @@ decreased in a maximum heap"
   (index-fn nil :type (or function null) :read-only t))
 
 (defun make-binary-heap(&key (initial-size  +standard-heap-allocation-size+)
-                           (adjustable t)
+                       (extend-size +standard-heap-extend-size+)
                            (element-type t)
                            (key-fn #'identity)
                            (comp-fn #'<)
@@ -93,7 +93,8 @@ decreased in a maximum heap"
    :vector (make-array initial-size
                        :element-type element-type
                        :fill-pointer 0
-                       :adjustable adjustable)
+                       :adjustable extend-size)
+   :extend-size extend-size
    :key-fn key-fn
    :comp-fn comp-fn
    :index-fn
@@ -125,13 +126,7 @@ decreased in a maximum heap"
 (defmethod enqueue(x (h binary-heap))
   (let ((v (binary-heap-vector h)))
     (when (= (fill-pointer v) (array-dimension v 0))
-      (restart-case
-          (error 'overflow :structure h)
-        (extend(&optional (extension +standard-heap-allocation-size+))
-          :report "Extend binary heap"
-          :interactive (lambda() (format t "Enter entension: ") (list (read)))
-          (setf (binary-heap-vector h)
-                (setf v (adjust-array v (+ (length v) extension)))))))
+      (overflow h))
     (heap-insert v x (binary-heap-comp-fn h) (binary-heap-key-fn h)
                  (binary-heap-index-fn h))))
 
@@ -174,6 +169,7 @@ decreased in a maximum heap"
                      (binary-heap-key-fn h)
                      f)))))
 
+#|
 (let ((fib (make-array 2 :element-type '(integer 0)
                          :adjustable t
                          :initial-contents '(1 2))))
@@ -184,3 +180,4 @@ decreased in a maximum heap"
     (if (zerop v)
         (setf (aref fib i) (+ (fibonacci (- i 2)) (fibonacci (1- i))))
         v))))
+|#

@@ -28,6 +28,7 @@
    (:documentation "Mixing for handline nodes that maintain size information."))
 
 (defmethod initialize-instance :after ((n node-size) &key (payload nil payload-p) &allow-other-keys)
+  (declare (ignore payload))
   (when payload-p (setf (slot-value n 'size) 1)))
 
 (defmethod size((n null)) 0)

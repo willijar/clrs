@@ -16,32 +16,27 @@
 
 (defun make-queue(&key
                   (initial-size +standard-heap-allocation-size+)
+                  (extend-size +standard-heap-extend-size+)
                   (element-type t)
-                  (adjustable nil)
                   (implementation (if initial-size 'vector 'list)))
   (ecase implementation
     (vector
      (make-vector-queue
+      :extend-size extend-size
       :vector (make-array (1+ initial-size)
                           :element-type element-type
-                          :adjustable adjustable)))
+                          :adjustable extend-size)))
     (list (make-list-queue))))
 
 (defmethod overflow((q vector-queue))
-  (restart-case
-      (error 'overflow :structure q)
-    (extend(&optional (extension +standard-heap-extend-size+))
-        :report "Extend queue"
-        :interactive (lambda() (format t "Enter entension: ") (list (read)))
-        (let* ((v (vector-queue-vector q))
-               (n (length v))
-               (head (vector-queue-head q)))
-          (setf v
-                (setf (vector-queue-vector q)
-                      (adjust-array v (+ n extension))))
-          (unless (>= (vector-queue-tail q) head)
-            (setf (subseq v (+ head extension)) (subseq v head n)
-                  (vector-queue-head q) (+ head extension)))))))
+  (let ((n (length (vector-queue-vector q))))
+    (call-next-method)
+    (let* ((v (vector-queue-vector q))
+           (head (vector-queue-head q))
+           (extension (- (length v) n)))
+      (unless (>= (vector-queue-tail q) head)
+        (setf (subseq v (+ head extension)) (subseq v head n)
+              (vector-queue-head q) (+ head extension))))))
 
 (defmethod enqueue(x (q vector-queue))
   (let* ((head (vector-queue-head q))
@@ -168,15 +163,29 @@
     (setf (list-queue-tail q) (last (list-queue-head q)))))
 
 (defmethod delete(x (q vector-queue))
-  (let* ((head (vector-queue-head q))
-         (tail (vector-queue-tail q))
-         (v (vector-queue-vector q))
-         (n (length v)))
-    (do*((i head j)
-         (j (mod (1+ i) n) (mod (1+ i) n))
-         (y (aref v i) (aref v i))
-         (found-p (eql x y) (or found-p (eql x y))))
-        ((= i tail) found-p)
-      (when found-p (setf (aref v i) (aref v j))))))
+  (let*((head (vector-queue-head q))
+        (tail (vector-queue-tail q))
+        (v (vector-queue-vector q))
+        (n (length v))
+        (nofound 0))
+    (do*((i head (mod (1+ i) n)))
+        ((= i tail) (not (zerop nofound)))
+      (when (eql x (aref v i)) (incf nofound))
+      (unless (zerop nofound)
+        (setf (aref v i) (aref v (mod (+ nofound i) n)))))))
 
+(defmethod delete-if(p (q list-queue))
+  (setf (list-queue-head q) (cl:delete-if p (list-queue-head q)))
+  (setf (list-queue-tail q) (last (list-queue-head q))))
 
+(defmethod delete-if(p (q vector-queue))
+  (let*((head (vector-queue-head q))
+        (tail (vector-queue-tail q))
+        (v (vector-queue-vector q))
+        (n (length v))
+        (nofound 0))
+    (do*((i head (mod (1+ i) n)))
+        ((= i tail) (not (zerop nofound)))
+      (when (funcall p (aref v i)) (incf nofound))
+      (unless (zerop nofound)
+        (setf (aref v i) (aref v (mod (+ nofound i) n)))))))

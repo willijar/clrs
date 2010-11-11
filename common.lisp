@@ -14,9 +14,11 @@
   element belongs to x"))
 
 (defgeneric delete(x s)
-  (:documentation "Given an element x in set s, removes x from s. Note
-  this operations takes the element x, not a key value. Return true if
-  object found and deleted."))
+  (:documentation "Given an element x in set s, removes x from s.
+ Return true if object found and deleted."))
+
+(defgeneric delete-if(p s)
+  (:documentation "Delete elements in s for which p(x) is true"))
 
 (defgeneric rank(x s)
   (:documentation "Given an ordered set s return the 0 based rank of
@@ -74,7 +76,8 @@
 (defstruct (vector-implementation (:conc-name implementation-))
   (vector
    (make-array +standard-heap-allocation-size+ :fill-pointer 0 :adjustable t)
-   :type vector))
+   :type vector)
+  (extend-size +standard-heap-extend-size+))
 
 (defstruct (list-implementation (:conc-name implementation-))
   (head nil :type list))
@@ -96,7 +99,7 @@
   (:report (lambda(c strm) (format strm "Underflow: ~A" (error-structure c)))))
 
 (defgeneric underflow(s)
-  (:documentation "Called when a data structre underflows")
+  (:documentation "Called when a data structure underflows")
   (:method(s)
     (restart-case
         (error 'underflow :structure s)
@@ -107,7 +110,24 @@
       v))))
 
 (defgeneric overflow(s)
-  (:documentation "Called when a structure overflows"))
+  (:documentation "Called when a structure overflows")
+  (:method((s vector-implementation))
+    (let* ((extension
+            (or (implementation-extend-size s)
+               (restart-case
+                   (error 'overflow :structure s)
+                 (extend(&optional (extension +standard-heap-extend-size+))
+                   :report "Extend queue"
+                   :interactive (lambda() (format t "Enter entension: ") (list (read)))
+                 extension))))
+          (v (implementation-vector s))
+          (n (length v)))
+      (setf (implementation-vector s)
+            (adjust-array
+             v
+             (etypecase extension
+               (integer  (+ n extension))
+               (real (round (* n extension)))))))))
 
 (defun invalid-index-error(datum structure &key (min 0) (max (size structure)))
   (error 'simple-type-error :datum datum :expected-type `(INTEGER ,min ,max)

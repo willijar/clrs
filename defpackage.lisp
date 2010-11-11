@@ -6,16 +6,16 @@
 (defpackage clrs
   (:use :cl)
   (:nicknames :alg)
-  (:shadow #:search #:delete #:push #:pop)
+  (:shadow #:search #:delete #:push #:pop #:delete-if)
   (:export
    ;; general
-   #:search #:insert #:delete #:traverse #:length
+   #:search #:insert #:delete #:traverse #:delete-if
    #:successor #:predecessor #:empty-p #:rank #:rank-lookup #:size
    #:overflow #:underflow #:extend
    ;; stack
    #:make-stack #:push #:pop #:peek
    ;; queue
-   #:make-queue #:enqueue #:dequeque
+   #:make-queue #:list-queue #:vector-queue #:enqueue #:dequeque
    ;; tree
    #:make-tree #:make-binary-tree #:make-red-black-tree
    ;; heap
