@@ -15,7 +15,7 @@
    ;; stack
    #:make-stack #:push #:pop #:peek
    ;; queue
-   #:make-queue #:list-queue #:vector-queue #:enqueue #:dequeque
+   #:make-queue #:list-queue #:vector-queue #:enqueue #:dequeue
    ;; tree
    #:make-tree #:make-binary-tree #:make-red-black-tree
    ;; heap

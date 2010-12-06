@@ -84,7 +84,7 @@ of dijkstra"
 
 (defun extract-first-hops(previous)
   "Return a vector mapping first hop nodes to list of destination nodes
-using previous output from dijkstra"
+using previous output from dijkstra."
   (let* ((n (length previous))
          (first-hops (make-array n :element-type `(integer -1 ,n) )))
     (dotimes(i n)
