@@ -79,6 +79,12 @@
           (car front))
         (underflow q))))
 
+(defmethod peek((q list-queue))
+   (let ((front (list-queue-head q)))
+    (if front
+        (car front)
+        (underflow q))))
+
 (defmethod push(x (q vector-queue))
   (enqueue x q))
 
@@ -102,6 +108,11 @@
         (progn
           (setf (vector-queue-tail q) (mod (1- tail) n))
           (aref v (vector-queue-tail q))))))
+
+(defmethod peek((q vector-queue))
+  (if (empty-p q)
+      (underflow q)
+      (aref (vector-queue-vector q) (vector-queue-tail q))))
 
 ;; general interface
 (defmethod insert(x (q vector-queue)) (enqueue x q))
