@@ -80,18 +80,18 @@ of dijkstra"
     (do ((n (aref previous end) (aref previous n)))
         ((= n (first route)) route)
       (when (< n 0) (error 'not-connected :end end))
-      (push n route))))
+      (cl:push n route))))
 
 (defun extract-first-hops(previous)
   "Return a vector mapping first hop nodes to list of destination nodes
 using previous output from dijkstra."
   (let* ((n (length previous))
-         (first-hops (make-array n :element-type `(integer -1 ,n) )))
+         (first-hops (make-array n :element-type `(integer -1 ,n) :initial-element -1)))
     (dotimes(i n)
-      (setf (aref first-hops i)
-            (handler-case
-                (second (extract-route i previous))
-              (not-connected(e) (declare (ignore e))  -1))))
+      (let((h (handler-case
+                       (second (extract-route i previous))
+                (not-connected(e) (declare (ignore e))  nil))))
+        (when h (setf (aref first-hops i) h))))
     first-hops))
 
 (defun bellman-ford(source n &key
