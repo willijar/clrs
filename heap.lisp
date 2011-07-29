@@ -65,8 +65,9 @@ decreased in a maximum heap"
          (funcall index-fn (href A p) p))))
 
 (defun heap-insert(A value predicate key &optional index-fn)
-  (funcall index-fn value (1+ (vector-push value A)))
-  (heap-key-changed A (length A) predicate key index-fn))
+  (let ((i (1+ (vector-push value A))))
+    (if index-fn (funcall index-fn value i))
+    (heap-key-changed A i predicate key index-fn)))
 
 (defun heap-delete(A i predicate key &optional index-fn)
   (when index-fn
@@ -85,10 +86,10 @@ decreased in a maximum heap"
 
 (defun make-binary-heap(&key (initial-size  +standard-heap-allocation-size+)
                        (extend-size +standard-heap-extend-size+)
-                           (element-type t)
-                           (key-fn #'identity)
-                           (comp-fn #'<)
-                           (index nil))
+                        (element-type t)
+                        (key-fn #'identity)
+                        (comp-fn #'<)
+                        (index nil))
   (%make-binary-heap
    :vector (make-array initial-size
                        :element-type element-type

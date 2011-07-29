@@ -4,6 +4,8 @@
   (head 0 :type fixnum)
   (tail 0 :type fixnum))
 
+(defstruct (vector-wrap-queue (:include vector-queue)))
+
 (defmethod size((q vector-queue))
   (mod (- (vector-queue-tail q) (vector-queue-head q))
        (length (vector-queue-vector q))))
@@ -26,7 +28,11 @@
       :vector (make-array (1+ initial-size)
                           :element-type element-type
                           :adjustable extend-size)))
-    (list (make-list-queue))))
+    (list (make-list-queue))
+    (:wrap
+     (make-vector-wrap-queue
+      :vector (make-array (1+ initial-size)
+                          :element-type element-type)))))
 
 (defmethod overflow((q vector-queue))
   (let ((n (length (vector-queue-vector q))))
@@ -37,6 +43,10 @@
       (unless (>= (vector-queue-tail q) head)
         (setf (subseq v (+ head extension)) (subseq v head n)
               (vector-queue-head q) (+ head extension))))))
+
+(defmethod overflow((q vector-wrap-queue))
+  (setf (vector-queue-head q) (mod (1+ head) (length v))))
+
 
 (defmethod enqueue(x (q vector-queue))
   (let* ((head (vector-queue-head q))
