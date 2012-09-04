@@ -141,8 +141,7 @@ decreased in a maximum heap"
 
 (defmethod peek((h binary-heap))
   (let ((A (binary-heap-vector h)))
-    (unless (< (length A) 1)
-      (underflow A))
+    (when (< (length A) 1) (underflow A))
     (href A 1)))
 
 (defmethod key-changed(x (h binary-heap))
