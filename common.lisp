@@ -75,7 +75,7 @@
 
 (defstruct (vector-implementation (:conc-name implementation-))
   (vector
-   (make-array +standard-heap-allocation-size+ :fill-pointer 0 :adjustable t)
+   (make-array +standard-heap-allocation-size+ :adjustable t)
    :type vector)
   (extend-size +standard-heap-extend-size+))
 
@@ -144,7 +144,6 @@
   (let ((r (rank x s)))
     (when (and r (> r 0))
       (rank-lookup (1- r) s))))
-
 
 (defmethod empty-p(s)
   (zerop (size s)))

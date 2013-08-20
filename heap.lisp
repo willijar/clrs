@@ -167,7 +167,18 @@ decreased in a maximum heap"
                      i
                      (binary-heap-comp-fn h)
                      (binary-heap-key-fn h)
-                     f)))))
+                     f)
+        x))))
+
+(defmethod delete-if(p (h binary-heap))
+  (let ((i (position-if p (alg::binary-heap-vector h))))
+    (when i
+      (heap-delete (binary-heap-vector h)
+                     (1+ i)
+                     (binary-heap-comp-fn h)
+                     (binary-heap-key-fn h)
+                     (binary-heap-index-fn h))
+      (1+ i))))
 
 #|
 (let ((fib (make-array 2 :element-type '(integer 0)

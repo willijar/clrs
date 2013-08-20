@@ -8,7 +8,7 @@
 
 (defmethod size((q vector-queue))
   (mod (- (vector-queue-tail q) (vector-queue-head q))
-       (length (vector-queue-vector q))))
+       (array-total-size (vector-queue-vector q))))
 
 (defmethod empty-p((q vector-queue))
   (= (vector-queue-head q) (vector-queue-tail q)))
@@ -45,14 +45,15 @@
               (vector-queue-head q) (+ head extension))))))
 
 (defmethod overflow((q vector-wrap-queue))
-  (setf (vector-queue-head q) (mod (1+ head) (length v))))
-
+  (setf (vector-queue-head q)
+        (mod (1+ (vector-queue-head q))
+             (length (vector-queue-vector q)))))
 
 (defmethod enqueue(x (q vector-queue))
   (let* ((head (vector-queue-head q))
          (tail (vector-queue-tail q))
          (v (vector-queue-vector q))
-         (n (length v)))
+         (n (array-total-size v)))
     (when (= head (mod (1+ tail) n))
       (overflow q)
       (setf v (vector-queue-vector q)
@@ -122,7 +123,7 @@
 (defmethod peek((q vector-queue))
   (if (empty-p q)
       (underflow q)
-      (aref (vector-queue-vector q) (vector-queue-tail q))))
+      (aref (vector-queue-vector q)  (vector-queue-head q))))
 
 ;; general interface
 (defmethod insert(x (q vector-queue)) (enqueue x q))
