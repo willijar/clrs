@@ -75,7 +75,8 @@ decreased in a maximum heap"
     (funcall index-fn (href A (length A)) i))
   (setf (href A i) (href A (length A)))
   (decf (fill-pointer A))
-  (heapify A i predicate key (length A) index-fn))
+  (heapify A i predicate key (length A) index-fn)
+  (heap-key-changed A i predicate key index-fn))
 
 (defstruct(binary-heap
             (:include vector-implementation)
