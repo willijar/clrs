@@ -64,6 +64,10 @@
 (defgeneric dequeue(q)
   (:documentation "Return next element x from queue q"))
 
+(defgeneric back(q)
+   (:documentation "Return last element added to queue q without
+  removing it."))
+
 (defgeneric key-changed(x h)
   (:documentation "Notify set h that key value of element x has changed"))
 

@@ -211,3 +211,18 @@
       (when (funcall p (aref v i)) (incf nofound))
       (unless (zerop nofound)
         (setf (aref v i) (aref v (mod (+ nofound i) n)))))))
+
+(defmethod back((q vector-queue))
+  (let ((head (vector-queue-head q))
+        (tail (vector-queue-tail q))
+        (v (vector-queue-vector q)))
+    (if (= head tail)
+        (underflow q)
+        (aref v (mod (1- tail) (length v))))))
+
+(defmethod back((q list-queue))
+  (let ((back (list-queue-tail q)))
+    (if back
+        (car back)
+        (underflow q))))
+

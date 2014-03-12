@@ -13,7 +13,7 @@
    #:successor #:predecessor #:empty-p #:rank #:rank-lookup #:size
    #:overflow #:underflow #:extend
    ;; stack
-   #:make-stack #:push #:pop #:peek
+   #:make-stack #:push #:pop #:peek #:back
    ;; queue
    #:make-queue #:list-queue #:vector-queue #:enqueue #:dequeue
    ;; tree
